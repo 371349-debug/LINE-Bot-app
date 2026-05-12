@@ -1,0 +1,7 @@
+flask
+requests
+urllib3
+line-bot-sdk
+tabulate
+apscheduler
+gunicorn
