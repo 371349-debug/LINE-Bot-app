@@ -1304,13 +1304,30 @@ def handle_district_pagination(event, user_id, state, text):
 # ======================
 # 使用者狀態管理
 # ======================
+# 個人聊天的 state 永不過期(user 可以中斷後繼續)
+# 群組/多人聊天室的 state 5 分鐘自動過期(避免久未操作後誤觸發其他 user)
 user_state = {}
+GROUP_STATE_TTL = 300  # 群組 state 存活時間(秒)
+
+def _is_group_key(key):
+    """state key 是不是群組/多人聊天室來源"""
+    return isinstance(key, str) and (key.startswith("group_") or key.startswith("room_"))
 
 def set_state(user_id, state):
+    # 群組 state 加上時間戳,用來判斷過期
+    if _is_group_key(user_id):
+        state = dict(state)  # 不影響呼叫端傳進來的 dict
+        state["_ts"] = time.time()
     user_state[user_id] = state
 
 def get_state(user_id):
-    return user_state.get(user_id, {})
+    state = user_state.get(user_id, {})
+    # 群組 state 超過 TTL 視為過期,清掉
+    if _is_group_key(user_id) and state.get("_ts"):
+        if time.time() - state["_ts"] > GROUP_STATE_TTL:
+            del user_state[user_id]
+            return {}
+    return state
 
 def clear_state(user_id):
     if user_id in user_state:
@@ -1364,9 +1381,50 @@ def cron_trigger():
 # ======================
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle(event):
-    user_id = event.source.user_id
     text = event.message.text.strip()
+    source_type = event.source.type  # "user" / "group" / "room"
+    is_group = source_type in ("group", "room")
+    
+    # 取得 sender 的真實 LINE user_id(個人聊天一定有;群組/多人聊天室可能沒有)
+    sender_id = getattr(event.source, "user_id", None) or "anonymous"
+    
+    # state key:
+    # - 個人聊天用 user_id
+    # - 群組用 "group_<group_id>_<sender_id>",讓每個 user 在群組裡有獨立 state
+    # - 多人聊天室用 "room_<room_id>_<sender_id>"
+    if source_type == "user":
+        user_id = sender_id
+    elif source_type == "group":
+        user_id = f"group_{event.source.group_id}_{sender_id}"
+    elif source_type == "room":
+        user_id = f"room_{event.source.room_id}_{sender_id}"
+    else:
+        return  # 未知來源,忽略
+    
     state = get_state(user_id)
+    
+    # 群組/多人聊天室的呼叫機制:
+    # 沒有 active state 時(剛開始或閒置過期),要求前綴觸發,不然 Bot 會在群組裡洗版
+    # 已經在 active flow 中的訊息(Quick Reply 按鈕點選等),直接放行
+    if is_group and not state:
+        TRIGGER_PREFIXES = ("/天氣", "@天氣", "天氣機器人")
+        
+        matched_prefix = None
+        for p in TRIGGER_PREFIXES:
+            if text.startswith(p):
+                matched_prefix = p
+                break
+        
+        if matched_prefix is None:
+            return  # 非觸發訊息,完全安靜
+        
+        # 去掉前綴,讓後面的主選單邏輯能正常處理
+        text = text[len(matched_prefix):].strip()
+        
+        # 標記進入 main_menu state,後續訊息(包含 Quick Reply 按鈕)就能直接處理
+        set_state(user_id, {"step": "main_menu"})
+        state = get_state(user_id)
+    
     current_step = state.get("step", "main_menu")
     
     # ======================== 主選單 ========================
@@ -1407,6 +1465,15 @@ def handle(event):
         elif text in ("7", "颱風"):
             reply_text(event.reply_token, get_typhoon_info(), quick_reply=build_main_menu_quick_reply())
         elif text in ("8", "推播", "推播設定", "訂閱"):
+            if is_group:
+                # 群組裡不開放推播設定:訂閱資料以 user_id 為 key,推播只能對個人發
+                reply_text(
+                    event.reply_token,
+                    "🔔 推播設定請在個人聊天中使用喔!\n\n請點我的頭像加好友,然後私訊我「推播」來設定。",
+                    quick_reply=build_main_menu_quick_reply()
+                )
+                clear_state(user_id)
+                return
             sub = get_user_sub(user_id)
             aqi_status = "✅ 開啟" if sub["aqi_alert"]["enabled"] else "❌ 關閉"
             eq_status = "✅ 開啟" if sub["earthquake"]["enabled"] else "❌ 關閉"
