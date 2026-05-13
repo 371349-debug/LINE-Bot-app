@@ -1427,6 +1427,19 @@ def handle(event):
     
     current_step = state.get("step", "main_menu")
     
+    # ======================== 取消 / 結束關鍵字 ========================
+    # 任何時候打這些字,清掉 state 讓 Bot 安靜下來
+    # 群組裡如果連 active state 都沒有,前面已經 return 不會走到這裡
+    CANCEL_KEYWORDS = ("取消", "結束", "離開", "停", "退出", "cancel", "exit", "quit", "stop")
+    if text.lower() in CANCEL_KEYWORDS:
+        clear_state(user_id)
+        if is_group:
+            # 群組裡用簡短訊息確認(避免洗版)
+            reply_text(event.reply_token, "👌 已結束,需要時打「/天氣」叫我。")
+        else:
+            reply_text(event.reply_token, "👌 已結束對話,需要時隨時叫我。")
+        return
+    
     # ======================== 主選單 ========================
     if current_step == "main_menu":
         if text in ("1", "空品", "空氣"):
