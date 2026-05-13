@@ -391,7 +391,7 @@ def fetch_12h(city, district):
         code = CITY_MAP.get(city)
         url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-D0047-{code}"
         params = {"Authorization": CWA_API_KEY, "format": "JSON", "locationName": district}
-        data = requests.get(url, params=params, timeout=10).json()
+        data = requests.get(url, params=params, timeout=20, verify=False).json()
         target = data["records"]["Locations"][0]["Location"][0]
         elements = {e["ElementName"]: e["Time"] for e in target["WeatherElement"]}
         time_base = elements.get("溫度") or elements.get("T")
@@ -412,14 +412,14 @@ def fetch_12h(city, district):
             msg += f"  🌡{temp_str} 體{at_str} 🌧{pop_str} 濕{rh_str}\n"
         return truncate_msg(msg)
     except Exception as e:
-        return f"❌ 12hr 預報錯誤：{str(e)[:50]}"
+        return f"❌ 12hr 預報錯誤：{str(e)[:150]}"
 
 def fetch_3day(city, district):
     try:
         code = CITY_MAP.get(city)
         url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-D0047-{code}"
         params = {"Authorization": CWA_API_KEY, "format": "JSON", "locationName": district}
-        data = requests.get(url, params=params, timeout=10).json()
+        data = requests.get(url, params=params, timeout=20, verify=False).json()
         target = data["records"]["Locations"][0]["Location"][0]
         elements = {e["ElementName"]: e["Time"] for e in target["WeatherElement"]}
         time_base = elements.get("溫度") or elements.get("T")
@@ -450,14 +450,14 @@ def fetch_3day(city, district):
                 msg += f"{row[0]} {row[1]}\n  🌡{row[2]} 體{row[3]} 🌧{row[4]}\n"
         return truncate_msg(msg)
     except Exception as e:
-        return f"❌ 3day 預報錯誤：{str(e)[:50]}"
+        return f"❌ 3day 預報錯誤：{str(e)[:150]}"
 
 def fetch_7day(city, district):
     try:
         for api_id in ["F-D0047-091", "F-D0047-093"]:
             url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/{api_id}"
             params = {"Authorization": CWA_API_KEY, "format": "JSON"}
-            data = requests.get(url, params=params, timeout=10).json()
+            data = requests.get(url, params=params, timeout=20, verify=False).json()
             if data.get("success") != "true":
                 continue
             target = None
@@ -493,14 +493,14 @@ def fetch_7day(city, district):
             return truncate_msg(msg)
         return f"❌ 找不到 {city}{district}"
     except Exception as e:
-        return f"❌ 7day 預報錯誤：{str(e)[:50]}"
+        return f"❌ 7day 預報錯誤：{str(e)[:150]}"
 
 def get_weather_now(city, district):
     try:
         code = CITY_MAP.get(city)
         url1 = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-D0047-{code}"
         params1 = {"Authorization": CWA_API_KEY, "format": "JSON"}
-        data1 = requests.get(url1, params=params1, timeout=10).json()
+        data1 = requests.get(url1, params=params1, timeout=20, verify=False).json()
         if "Locations" not in data1.get("records", {}):
             return f"❌ 找不到 {city} 的資料"
         target = None
@@ -522,7 +522,7 @@ def get_weather_now(city, district):
         rh = get_smart_value(elements, ["相對濕度", "RH"], ct)
         url2 = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001"
         params2 = {"Authorization": CWA_API_KEY, "format": "JSON"}
-        data2 = requests.get(url2, params=params2, timeout=10).json()
+        data2 = requests.get(url2, params=params2, timeout=20, verify=False).json()
         pop = "--"
         if "location" in data2.get("records", {}):
             for loc in data2["records"]["location"]:
@@ -539,7 +539,7 @@ def get_weather_now(city, district):
             f"💨 濕度：{rh}%"
         )
     except Exception as e:
-        return f"❌ 天氣資料錯誤：{str(e)[:50]}"
+        return f"❌ 天氣資料錯誤：{str(e)[:150]}"
 
 # ======================
 # AQI 查詢
@@ -694,7 +694,7 @@ def get_outdoor_advice(city, district):
         
         return msg
     except Exception as e:
-        return f"❌ 戶外活動建議錯誤：{str(e)[:50]}"
+        return f"❌ 戶外活動建議錯誤：{str(e)[:150]}"
 
 # ============================================================
 # 紫外線指數
@@ -773,7 +773,7 @@ def get_uv_for_city(city):
     try:
         url = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0005-001"
         params = {"Authorization": CWA_API_KEY, "format": "JSON"}
-        data = requests.get(url, params=params, timeout=10).json()
+        data = requests.get(url, params=params, timeout=20, verify=False).json()
         
         locations = _parse_uv_locations(data)
         if not locations:
@@ -841,7 +841,7 @@ def get_uv_info(city):
     try:
         url = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0005-001"
         params = {"Authorization": CWA_API_KEY, "format": "JSON"}
-        data = requests.get(url, params=params, timeout=10).json()
+        data = requests.get(url, params=params, timeout=20, verify=False).json()
         
         locations = _parse_uv_locations(data)
         if not locations:
@@ -891,7 +891,7 @@ def get_uv_info(city):
         
         return truncate_msg(msg)
     except Exception as e:
-        return f"❌ 紫外線資料錯誤：{str(e)[:50]}"
+        return f"❌ 紫外線資料錯誤：{str(e)[:150]}"
 
 # ============================================================
 # 颱風資訊
@@ -901,7 +901,7 @@ def get_typhoon_info():
     try:
         url = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/W-C0034-005"
         params = {"Authorization": CWA_API_KEY, "format": "JSON"}
-        data = requests.get(url, params=params, timeout=10).json()
+        data = requests.get(url, params=params, timeout=20, verify=False).json()
         
         if data.get("success") != "true":
             return "✅ 目前無颱風警報"
@@ -947,7 +947,7 @@ def get_typhoon_info():
         
         return truncate_msg(msg)
     except Exception as e:
-        return f"❌ 颱風資訊錯誤：{str(e)[:50]}"
+        return f"❌ 颱風資訊錯誤：{str(e)[:150]}"
 
 # ============================================================
 # 地震資訊
@@ -957,7 +957,7 @@ def get_latest_earthquake():
     try:
         url = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0015-001"
         params = {"Authorization": CWA_API_KEY, "format": "JSON", "limit": 5}
-        data = requests.get(url, params=params, timeout=10).json()
+        data = requests.get(url, params=params, timeout=20, verify=False).json()
         
         if data.get("success") != "true":
             return None, "❌ 地震 API 失敗"
@@ -993,7 +993,7 @@ def get_latest_earthquake():
         
         return eq_no, msg
     except Exception as e:
-        return None, f"❌ 地震資料錯誤：{str(e)[:50]}"
+        return None, f"❌ 地震資料錯誤：{str(e)[:150]}"
 
 # ============================================================
 # 空品預報
@@ -1038,7 +1038,7 @@ def get_aqi_forecast(city):
         
         return truncate_msg(msg)
     except Exception as e:
-        return f"❌ 空品預報錯誤：{str(e)[:50]}"
+        return f"❌ 空品預報錯誤：{str(e)[:150]}"
 
 # ============================================================
 # 🔔 自動推播：核心函式
@@ -1526,7 +1526,7 @@ def handle(event):
                 code = CITY_MAP.get(selected_city)
                 url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-D0047-{code}"
                 params = {"Authorization": CWA_API_KEY, "format": "JSON"}
-                data = requests.get(url, params=params, timeout=10).json()
+                data = requests.get(url, params=params, timeout=20, verify=False).json()
                 if "Locations" in data.get("records", {}):
                     locations = data["records"]["Locations"][0].get("Location", [])
                     districts = [loc.get("LocationName", "") for loc in locations]
@@ -1554,7 +1554,7 @@ def handle(event):
                     reply_text(event.reply_token, f"❌ {selected_city} 無行政區資料", quick_reply=build_main_menu_quick_reply())
                     set_state(user_id, {"step": "main_menu"})
             except Exception as e:
-                reply_text(event.reply_token, f"❌ 無法取得 {selected_city} 的行政區清單", quick_reply=build_main_menu_quick_reply())
+                reply_text(event.reply_token, f"❌ 無法取得 {selected_city} 的行政區清單\n原因：{str(e)[:150]}", quick_reply=build_main_menu_quick_reply())
                 set_state(user_id, {"step": "main_menu"})
         else:
             reply_text(event.reply_token, "⚠️ 請從按鈕選擇縣市")
