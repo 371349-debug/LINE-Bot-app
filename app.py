@@ -902,37 +902,39 @@ def get_typhoon_info():
         url = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/W-C0034-005"
         params = {"Authorization": CWA_API_KEY, "format": "JSON"}
         data = requests.get(url, params=params, timeout=20, verify=False).json()
-        
+
         if data.get("success") != "true":
             return "✅ 目前無颱風警報"
-        
+
         records = data.get("records", {})
-        typhoons = records.get("tropicalCyclones", {}).get("tropicalCyclone", [])
-        
+        typhoons = records.get("TropicalCyclones", {}).get("TropicalCyclone", [])
+
         if not typhoons:
             return "✅ 目前無颱風警報\n\n臺灣周圍海域目前平靜，無颱風生成或接近。"
-        
+
         msg = "🌀 颱風資訊\n\n"
-        
+
         for ty in typhoons[:3]:
-            ty_info = ty.get("typhoonName", "未命名")
-            ty_cwa_name = ty.get("cwaTyphoonName", "")
-            year = ty.get("year", "")
-            
+            ty_info = ty.get("TyphoonName", "未命名")
+            ty_cwa_name = ty.get("CwaTyphoonName", "")
+            year = ty.get("Year", "")
+
             msg += f"🌪️ {ty_cwa_name or ty_info}\n"
             if year:
                 msg += f"   年份：{year}\n"
-            
-            analysis = ty.get("analysisData", {}).get("fix", [])
+
+            analysis = ty.get("AnalysisData", {}).get("Fix", [])
             if analysis:
                 latest = analysis[-1]
-                fix_time = latest.get("fixTime", "")[:16].replace("T", " ")
-                coord = latest.get("coordinate", "")
-                pressure = latest.get("pressure", "")
-                wind_speed = latest.get("maxWindSpeed", "")
-                moving_speed = latest.get("movingSpeed", "")
-                moving_dir = latest.get("movingDirection", "")
-                
+                fix_time = latest.get("DateTime", "")[:16].replace("T", " ")
+                lat = latest.get("CoordinateLatitude", "")
+                lon = latest.get("CoordinateLongitude", "")
+                coord = f"北緯 {lat}度, 東經 {lon}度" if lat and lon else ""
+                pressure = latest.get("Pressure", "")
+                wind_speed = latest.get("MaxWindSpeed", "")
+                moving_speed = latest.get("MovingSpeed", "")
+                moving_dir = latest.get("MovingDirection", "")
+
                 msg += f"   ⏰ 觀測時間：{fix_time}\n"
                 if coord:
                     msg += f"   📍 位置：{coord}\n"
@@ -942,13 +944,12 @@ def get_typhoon_info():
                     msg += f"   💨 最大風速：{wind_speed} m/s\n"
                 if moving_dir and moving_speed:
                     msg += f"   ➡️ 移動：向{moving_dir} {moving_speed} km/h\n"
-            
+
             msg += "\n"
-        
+
         return truncate_msg(msg)
     except Exception as e:
         return f"❌ 颱風資訊錯誤：{str(e)[:150]}"
-
 # ============================================================
 # 地震資訊
 # ============================================================
